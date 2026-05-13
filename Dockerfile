@@ -20,4 +20,4 @@ COPY --from=frontend /frontend/dist frontend/dist/
 # Supabase 数据库连接串通过 Zeabur 环境变量 DATABASE_URL 注入
 EXPOSE 8000
 
-CMD gunicorn backend.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000}
+CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}
