@@ -1,0 +1,109 @@
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 600000
+})
+
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('admin_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    const msg = error.response?.data?.detail || error.message || '请求失败'
+    ElMessage.error(msg)
+    if (error.response?.status === 401) {
+      localStorage.removeItem('admin_token')
+      window.location.hash = '/admin/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+export function login(username, password) {
+  return api.post('/admin/login', { username, password })
+}
+
+export function adminRegister(username, password, className) {
+  return api.post('/admin/register', { username, password, class_name: className })
+}
+
+export function getClasses() {
+  return api.get('/admin/classes')
+}
+
+export function createClass(name) {
+  return api.post('/admin/classes', { name })
+}
+
+export function createHomework(data) {
+  return api.post('/admin/homeworks', data)
+}
+
+export function listHomeworks() {
+  return api.get('/admin/homeworks')
+}
+
+export function getHomework(id) {
+  return api.get(`/admin/homeworks/${id}`)
+}
+
+export function deleteHomework(id) {
+  return api.delete(`/admin/homeworks/${id}`)
+}
+
+export function exportCsv(id) {
+  return api.get(`/admin/homeworks/${id}/export-csv`, { responseType: 'blob' })
+}
+
+export function downloadAll(id, flat = false) {
+  return api.get(`/admin/homeworks/${id}/download-all`, { params: { flat }, responseType: 'blob' })
+}
+
+export function getSubmitPage(linkId) {
+  return api.get(`/submit/${linkId}`)
+}
+
+export function submitHomework(linkId, formData, onProgress) {
+  return api.post(`/submit/${linkId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: onProgress
+  })
+}
+
+export function checkSubmission(linkId, name, studentId) {
+  return api.get(`/submit/${linkId}/check`, { params: { student_name: name, student_id: studentId } })
+}
+
+export function studentRegister(studentName, studentId, className = '', phone = '') {
+  return api.post('/student/register', { student_name: studentName, student_id: studentId, class_name: className, phone })
+}
+
+export function studentLogin(studentName, studentId) {
+  return api.post('/student/login', { student_name: studentName, student_id: studentId })
+}
+
+export function getPublicClasses() {
+  return api.get('/student/classes')
+}
+
+export function getStudents() {
+  return api.get('/admin/students')
+}
+
+export function getAllAdmins() {
+  return api.get('/admin/all-admins')
+}
+
+export function deleteAdmin(username) {
+  return api.delete(`/admin/admins/${username}`)
+}
+
+export default api

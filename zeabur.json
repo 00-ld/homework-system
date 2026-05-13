@@ -1,0 +1,5 @@
+{
+  "name": "homework-system",
+  "description": "班级作业提交系统",
+  "dockerfile": "Dockerfile"
+}

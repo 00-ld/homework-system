@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+.env
+.git
+.gitignore
+node_modules
+data
+dist
+build
+*.spec
+frontend/node_modules
+frontend/src
+frontend/public
+frontend/*.json
+frontend/*.js
+!.dockerignore
