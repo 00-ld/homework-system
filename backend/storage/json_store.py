@@ -513,7 +513,7 @@ class JsonStore:
                     for file_path in student_dir.rglob("*"):
                         if file_path.is_file():
                             if flat:
-                                arcname = f"{student_dir.name}_{file_path.name}"
+                                arcname = file_path.name
                             else:
                                 # 改进13: 确保路径为 {student_name}_{student_id}/{original_filename}
                                 arcname = f"{student_dir.name}/{file_path.name}"
@@ -542,7 +542,7 @@ class JsonStore:
                         for file_path in student_dir.rglob("*"):
                             if file_path.is_file():
                                 if flat:
-                                    arcname = f"{student_dir.name}_{file_path.name}"
+                                    arcname = file_path.name
                                 else:
                                     arcname = f"{student_dir.name}/{file_path.name}"
                                 zf.write(file_path, arcname)
