@@ -1,66 +1,68 @@
 # 班级作业文件夹提交系统
 
-一个基于 Web 的班级作业提交工具。管理员创建作业并生成专属链接，学生通过链接提交文件夹（≤500MB），系统自动按日期归档。
+一个功能完整的班级作业提交管理平台。支持 Web 端和微信小程序，管理员创建作业并生成专属链接，学生通过拖拽文件夹提交作业（最大 2GB），系统自动归档并支持导出。
+
+🌐 **在线体验**: [web-production-de95b.up.railway.app](https://web-production-de95b.up.railway.app)
+
+---
+
+## 核心功能
+
+### 👨‍🏫 管理员
+- **多管理员注册** — 授权码 `work` 验证，支持多班级管理
+- **作业管理** — 创建/查看/删除作业，设置截止日期，允许/禁止重交
+- **提交详情** — 查看谁提交了、谁没提交，班级人员统计
+- **系统管理** — 超管面板：系统统计、管理员管理、反馈查看
+- **一键导出** — CSV 名单 + ZIP 打包下载（保留原始文件名）
+
+### 👨‍🎓 学生
+- **拖拽上传** — 直接拖拽文件夹到页面（支持 2GB 大文件）
+- **提交状态** — 已提交/再次提交/截止禁用自动切换
+- **记住账号** — localStorage 自动填充登录信息
+- **反馈提交** — 意见与 Bug 一键反馈
+- **手机适配** — 全页面响应式设计
+
+### 📱 微信小程序
+配套小程序项目位于 `miniprogram/`，通过 web-view 加载 Web 端。
+
+---
 
 ## 快速开始
 
-### 方式一：直接运行（开发模式）
-
+### 后端
 ```bash
-# Windows
-start.bat
-
-# Mac / Linux
-bash start.sh
+cd backend
+pip install -r requirements.txt
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-浏览器自动打开 → 访问 `http://localhost:8000`
-
-### 方式二：打包为可执行文件
-
+### 前端（开发模式）
 ```bash
-# Windows
-scripts\build.bat
-
-# Mac / Linux
-bash scripts/build.sh
+cd frontend
+npm install
+npm run dev
 ```
 
-打包后在 `dist/` 目录下生成可执行文件。
-
-## 使用指南
-
-### 管理员
-1. 打开系统，进入管理后台
-2. 默认密码：`admin123`（可在 `backend/config.py` 修改）
-3. 创建作业 → 填写名称、要求、截止日期
-4. 复制系统生成的提交链接，发送给学生
-
-### 学生
-1. 打开老师发的链接
-2. 填写姓名和学号
-3. 选择或拖拽文件夹上传（≤500MB）
-4. 等待上传完成，看到"提交成功"提示
-
-### 教师管理
-- 在作业详情页查看提交名单
-- 导出提交记录 CSV
-- 一键下载所有提交文件
-
-## 配置说明
-
-编辑 `backend/config.py`：
-
-```python
-ADMIN_PASSWORD = "admin123"           # 管理员密码
-MAX_UPLOAD_SIZE = 500 * 1024 * 1024   # 最大上传大小（500MB）
-HOST = "0.0.0.0"                      # 监听地址
-PORT = 8000                           # 监听端口
-```
+---
 
 ## 技术栈
 
-- 后端：Python FastAPI
-- 前端：Vue 3 + Element Plus
-- 存储：JSON 文件系统（无需数据库）
-- 打包：PyInstaller
+| 层级 | 技术 |
+|------|------|
+| 后端 | Python FastAPI + Uvicorn |
+| 前端 | Vue 3 + Vite + Element Plus |
+| 存储 | JSON 文件 / PostgreSQL |
+| 部署 | Railway / Hugging Face Spaces |
+| 小程序 | 微信小程序 web-view |
+
+---
+
+## 配置
+
+编辑 `backend/config.py`:
+
+```python
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2GB 上传上限
+HOST = "0.0.0.0"
+PORT = 8000
+```
