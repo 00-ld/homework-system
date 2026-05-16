@@ -1,0 +1,31 @@
+<!--
+  首页 - 使用 web-view 加载班级作业提交系统
+  web-view 组件会自动铺满整个页面
+-->
+<view class="container">
+  <!-- 加载状态提示 -->
+  <view class="loading-mask" wx:if="{{loading}}">
+    <view class="loading-spinner">
+      <view class="spinner"></view>
+      <text class="loading-text">正在加载...</text>
+    </view>
+  </view>
+
+  <!--
+    错误状态提示
+    当 web-view 加载失败时显示
+  -->
+  <view class="error-page" wx:if="{{error}}">
+    <view class="error-icon">!</view>
+    <text class="error-title">加载失败</text>
+    <text class="error-message">{{errorMsg}}</text>
+    <button class="retry-btn" bindtap="retryLoad">重试</button>
+  </view>
+
+  <!-- WebView 组件 -->
+  <web-view
+    src="{{webviewUrl}}"
+    bindload="onWebviewLoad"
+    binderror="onWebviewError"
+  ></web-view>
+</view>

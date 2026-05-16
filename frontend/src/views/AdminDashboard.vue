@@ -13,6 +13,15 @@
         <el-button @click="$router.push('/admin/sms-config')">
           <el-icon><Message /></el-icon> 邮件设置
         </el-button>
+        <!-- 改进7: 超管导航 -->
+        <template v-if="isSuperAdmin">
+          <el-button type="warning" @click="$router.push('/admin/system')">
+            <el-icon><Setting /></el-icon> 系统管理
+          </el-button>
+          <el-button @click="$router.push('/admin/feedback')">
+            <el-icon><ChatDotSquare /></el-icon> 反馈管理
+          </el-button>
+        </template>
         <el-button @click="logout" type="info" plain>退出登录</el-button>
       </div>
     </header>
@@ -172,8 +181,21 @@ onMounted(async () => {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 16px; background: white; padding: 20px 24px;
   border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  flex-wrap: wrap; gap: 12px;
 }
 .dashboard-header h1 { margin: 0; font-size: 20px; }
 .admin-badge { color: #e6a23c; font-size: 12px; margin-left: 8px; }
 .class-badge { color: #909399; font-size: 12px; margin-left: 8px; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .dashboard { padding: 16px; }
+  .dashboard-header { flex-direction: column; align-items: flex-start; }
+  .dashboard-header > div:last-child {
+    display: flex; flex-wrap: wrap; gap: 8px; width: 100%;
+  }
+  .dashboard-header > div:last-child .el-button {
+    flex: 1; min-width: 0; font-size: 12px; padding: 8px 12px;
+  }
+}
 </style>

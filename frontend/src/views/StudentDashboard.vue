@@ -176,6 +176,7 @@ onMounted(() => {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 24px; background: white; padding: 20px 24px;
   border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  flex-wrap: wrap; gap: 12px;
 }
 .stu-header h1 { margin: 0; font-size: 20px; }
 .user-badge { color: #67c23a; font-size: 13px; margin-top: 4px; display: inline-block; }
@@ -183,9 +184,11 @@ onMounted(() => {
 .stu-tabs { background: white; border-radius: 12px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .notice-card {
   padding: 20px; border: 1px solid #ebeef5; border-radius: 8px; margin-bottom: 12px;
+  transition: box-shadow 0.25s;
 }
+.notice-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
 .notice-card:last-child { margin-bottom: 0; }
-.notice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.notice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
 .notice-header h3 { margin: 0; font-size: 16px; }
 .notice-desc { color: #606266; margin: 0 0 8px; white-space: pre-wrap; font-size: 14px; }
 .notice-footer { display: flex; justify-content: space-between; align-items: center; }
@@ -193,9 +196,24 @@ onMounted(() => {
 .hw-card {
   display: flex; justify-content: space-between; align-items: center;
   padding: 20px; border: 1px solid #ebeef5; border-radius: 8px; margin-bottom: 12px;
+  transition: box-shadow 0.25s;
 }
+.hw-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
 .hw-card:last-child { margin-bottom: 0; }
 .hw-card-body h3 { margin: 0 0 6px; font-size: 16px; }
 .hw-card-body p { color: #606266; margin: 0 0 8px; font-size: 14px; white-space: pre-wrap; }
 .hw-card-action { margin-left: 16px; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .stu-page { padding: 16px; }
+  .stu-header { flex-direction: column; align-items: flex-start; }
+  .stu-header > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .stu-header h1 { font-size: 18px; }
+  .stu-tabs { padding: 16px; }
+  .hw-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .hw-card-action { margin-left: 0; width: 100%; }
+  .hw-card-action .el-button { width: 100%; }
+  .notice-card { padding: 16px; }
+}
 </style>

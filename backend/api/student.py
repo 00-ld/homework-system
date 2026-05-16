@@ -24,6 +24,7 @@ class UpdatePhoneRequest(BaseModel):
     phone: str
 
 
+# 改进5: 支持信息更新（学号已存在时更新信息而非拒绝）
 @router.post("/register")
 def register(req: RegisterRequest):
     if not req.student_name.strip() or not req.student_id.strip():
@@ -31,6 +32,8 @@ def register(req: RegisterRequest):
     result = store.register_student(req.student_name.strip(), req.student_id.strip(), req.phone.strip(), req.class_name.strip(), req.email.strip())
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["message"])
+    if result.get("updated"):
+        return {"message": "信息已更新", "student": result["student"]}
     return {"message": "注册成功", "student": result}
 
 

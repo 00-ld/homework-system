@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Header, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from ..models.schemas import LoginRequest, CreateHomeworkRequest
 from ..storage import JsonStore
 from ..notify.email_sender import send_homework_reminder
 
 
+# 改进4: 授权码字段
 class EmailConfigRequest(BaseModel):
     smtp_server: str = ""
     smtp_port: int = 587
@@ -17,6 +19,7 @@ class AdminRegisterRequest(BaseModel):
     username: str
     password: str
     class_name: str
+    auth_code: str = ""
 
 
 class ClassCreateRequest(BaseModel):
@@ -37,10 +40,14 @@ def get_current_admin(authorization: str = Header(None)) -> dict:
     return admin
 
 
+# 改进4: 授权码注册管理员
 @router.post("/register")
 def register_admin(req: AdminRegisterRequest):
     if not req.username.strip() or not req.password.strip() or not req.class_name.strip():
         raise HTTPException(status_code=400, detail="用户名、密码和班级不能为空")
+    # 超级管理员（admin 用户）注册时不需要授权码
+    if req.username.strip() != "admin" and req.auth_code != "work":
+        raise HTTPException(status_code=403, detail="授权码错误，请输入正确的授权码")
     result = store.register_admin(req.username.strip(), req.password.strip(), req.class_name.strip())
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["message"])
@@ -109,15 +116,22 @@ def export_csv(hw_id: str, authorization: str = Header(None)):
     )
 
 
+# 大文件优化: 使用 StreamingResponse 流式返回 ZIP，避免大文件加载到内存
 @router.get("/homeworks/{hw_id}/download-all")
 def download_all(hw_id: str, flat: bool = False, authorization: str = Header(None)):
     get_current_admin(authorization)
-    zip_data = store.create_submission_zip(hw_id, flat=flat)
-    if zip_data is None:
-        raise HTTPException(status_code=404, detail="作业不存在或暂无提交")
+    # 先用非流式方法检查是否有数据
+    hw = store.get_homework(hw_id)
+    if not hw:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    dir_name = store._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
+    hw_dir = store.uploads_dir / dir_name
+    if not hw_dir.exists():
+        raise HTTPException(status_code=404, detail="暂无提交")
     suffix = "_flat" if flat else ""
-    return Response(
-        content=zip_data,
+    generator = store.iter_submission_zip_chunks(hw_id, flat=flat)
+    return StreamingResponse(
+        generator,
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename=all_submissions{suffix}_{hw_id}.zip"}
     )
@@ -220,3 +234,118 @@ def delete_admin(username: str, authorization: str = Header(None)):
     if store.delete_admin(username):
         return {"message": f"已踢出管理员 {username}"}
     raise HTTPException(status_code=404, detail="管理员不存在")
+
+
+# ─── 改进6: 班级人员管理 ───
+
+@router.get("/classes/{class_name}/students")
+def get_class_students(class_name: str, authorization: str = Header(None)):
+    """查看班级所有学生（包括非活跃的）"""
+    admin = get_current_admin(authorization)
+    if admin["class_name"] != class_name and admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="无权访问该班级")
+    students = store.list_students_by_class(class_name, active_only=False)
+    return {"students": students}
+
+
+@router.get("/classes/{class_name}/stats")
+def get_class_stats(class_name: str, authorization: str = Header(None)):
+    """班级统计（总人数、活跃人数）"""
+    admin = get_current_admin(authorization)
+    if admin["class_name"] != class_name and admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="无权访问该班级")
+    all_students = store.list_students_by_class(class_name, active_only=False)
+    active_students = store.list_students_by_class(class_name, active_only=True)
+    return {
+        "class_name": class_name,
+        "total_students": len(all_students),
+        "active_students": len(active_students),
+        "inactive_students": len(all_students) - len(active_students)
+    }
+
+
+@router.delete("/students/{student_id}")
+def remove_student(student_id: str, authorization: str = Header(None)):
+    """移除学生（标记为非活跃）"""
+    admin = get_current_admin(authorization)
+    student = store.get_student_by_id(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    if admin["class_name"] != student.get("class_name", "") and admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="无权操作该学生")
+    if store.deactivate_student(student_id):
+        return {"message": f"已移除学生 {student.get('student_name')}（{student_id}）"}
+    raise HTTPException(status_code=500, detail="操作失败")
+
+
+@router.get("/homeworks/{hw_id}/status")
+def get_homework_status(hw_id: str, authorization: str = Header(None)):
+    """查看作业谁提交了谁没提交"""
+    admin = get_current_admin(authorization)
+    hw = store.get_homework(hw_id)
+    if not hw:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    if hw.get("class_name") != admin["class_name"]:
+        raise HTTPException(status_code=403, detail="无权访问该作业")
+    # 获取班级所有活跃学生
+    students = store.list_students_by_class(admin["class_name"], active_only=True)
+    # 获取已提交的学生 ID 集合
+    submitted_ids = {s["student_id"] for s in hw.get("submissions", [])}
+    result = []
+    for s in students:
+        result.append({
+            "student_name": s["student_name"],
+            "student_id": s["student_id"],
+            "submitted": s["student_id"] in submitted_ids
+        })
+    return {"homework_title": hw["title"], "students": result}
+
+
+# ─── 改进7: 超管权限 ───
+
+@router.get("/system/stats")
+def get_system_stats(authorization: str = Header(None)):
+    """系统统计 — 仅超管可访问"""
+    admin = get_current_admin(authorization)
+    if admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="仅超级管理员可操作")
+    admins = store.list_all_admins()
+    classes = store.list_classes()
+    students = store.list_all_students()
+    homeworks = store.list_homeworks()
+    total_submissions = sum(len(hw.get("submissions", [])) for hw in homeworks)
+    return {
+        "total_admins": len(admins),
+        "total_classes": len(classes),
+        "total_students": len(students),
+        "total_homeworks": len(homeworks),
+        "total_submissions": total_submissions
+    }
+
+
+@router.get("/system/recent-activities")
+def get_recent_activities(limit: int = 20, authorization: str = Header(None)):
+    """最近活动日志 — 仅超管可访问"""
+    admin = get_current_admin(authorization)
+    if admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="仅超级管理员可操作")
+    homeworks = store.list_homeworks()
+    activities = []
+    for hw in homeworks:
+        activities.append({
+            "type": "homework_created",
+            "title": hw["title"],
+            "class_name": hw.get("class_name", ""),
+            "time": hw["created_at"]
+        })
+        for sub in hw.get("submissions", []):
+            activities.append({
+                "type": "submission",
+                "homework_title": hw["title"],
+                "student_name": sub["student_name"],
+                "student_id": sub["student_id"],
+                "time": sub["submitted_at"]
+            })
+    # 按时间降序排列
+    activities.sort(key=lambda a: a.get("time", ""), reverse=True)
+    return {"activities": activities[:limit]}

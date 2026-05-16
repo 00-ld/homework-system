@@ -98,7 +98,14 @@ onMounted(async () => {
 
 <style scoped>
 .config-page { max-width: 800px; margin: 0 auto; padding: 24px; }
-.config-card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-.config-card h1 { margin: 0 0 8px; font-size: 22px; }
+.config-card { background: white; padding: 32px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.config-card h1 { margin: 0 0 8px; font-size: 22px; color: #303133; }
 .tip { color: #909399; margin: 0 0 24px; font-size: 14px; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .config-page { padding: 16px; }
+  .config-card { padding: 20px; }
+  .config-card h1 { font-size: 20px; }
+}
 </style>

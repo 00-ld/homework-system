@@ -22,3 +22,7 @@ data/
 # Env
 .env
 *.local.*
+.omc/
+miniprogram/upload.js
+miniprogram/polyfill.js
+miniprogram/package.json

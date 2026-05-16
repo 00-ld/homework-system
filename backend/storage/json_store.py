@@ -11,14 +11,17 @@ from ..config import DATA_DIR
 
 
 class JsonStore:
+    # 改进: 共享 token 存储（跨模块实例共享）
+    _tokens: dict[str, str] = {}
+
     def __init__(self):
         self.homeworks_file = DATA_DIR / "homeworks.json"
         self.students_file = DATA_DIR / "students.json"
         self.admins_file = DATA_DIR / "admins.json"
         self.classes_file = DATA_DIR / "classes.json"
         self.email_config_file = DATA_DIR / "email_config.json"
+        self.feedbacks_file = DATA_DIR / "feedbacks.json"  # 改进11: 反馈存储
         self.uploads_dir = DATA_DIR / "uploads"
-        self._tokens: dict[str, str] = {}
         # 云部署时使用 PostgreSQL 持久化数据
         self._use_db = bool(os.environ.get("DATABASE_URL"))
         if self._use_db:
@@ -40,6 +43,8 @@ class JsonStore:
             self._write_classes([])
         if not self.email_config_file.exists():
             self._write_email_config({})
+        if not self.feedbacks_file.exists():  # 改进11: 初始化反馈文件
+            self._write_feedbacks([])
 
     def _read_json(self) -> list:
         if self._use_db:
@@ -159,9 +164,38 @@ class JsonStore:
                 return True
         return False
 
-    def list_students_by_class(self, class_name: str) -> list:
+    def list_students_by_class(self, class_name: str, active_only: bool = True) -> list:
         students = self._read_students()
-        return [s for s in students if s.get("class_name") == class_name]
+        result = [s for s in students if s.get("class_name") == class_name]
+        if active_only:
+            result = [s for s in result if s.get("status", "active") == "active"]
+        return result
+
+    # 改进5: 返回所有学生（包括非活跃的）
+    def list_all_students(self) -> list:
+        return self._read_students()
+
+    # 改进5: 标记学生为非活跃
+    def deactivate_student(self, student_id: str) -> bool:
+        students = self._read_students()
+        for s in students:
+            if s["student_id"] == student_id:
+                s["status"] = "inactive"
+                s["deactivated_at"] = datetime.now().isoformat()
+                self._write_students(students)
+                return True
+        return False
+
+    # 改进5: 重新激活学生
+    def activate_student(self, student_id: str) -> bool:
+        students = self._read_students()
+        for s in students:
+            if s["student_id"] == student_id:
+                s["status"] = "active"
+                s["activated_at"] = datetime.now().isoformat()
+                self._write_students(students)
+                return True
+        return False
 
     # --- Class methods ---
 
@@ -265,7 +299,7 @@ class JsonStore:
         hw = self._find_homework(homeworks, hw_id)
         if not hw:
             return False
-        hw_dir = self.uploads_dir / f"{hw['due_date']}_{hw['title']}"
+        hw_dir = self.uploads_dir / self._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
         if hw_dir.exists():
             shutil.rmtree(hw_dir)
         homeworks = [h for h in homeworks if h["id"] != hw_id]
@@ -307,23 +341,49 @@ class JsonStore:
                 return None
         return None
 
+    @staticmethod
+    def _sanitize_path_component(name: str) -> str:
+        """Windows 安全：移除文件名中不允许的字符"""
+        invalid_chars = '<>:"/\\|?*'
+        for c in invalid_chars:
+            name = name.replace(c, '_')
+        return name.strip()[:200]  # 限制长度，避免路径过长
+
     def get_submission_dir(self, hw: dict, student_name: str, student_id: str) -> Path:
-        dir_name = f"{hw['due_date']}_{hw['title']}"
-        student_dir = self.uploads_dir / dir_name / f"{student_name}_{student_id}"
+        dir_name = self._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
+        student_dir = self.uploads_dir / dir_name / self._sanitize_path_component(f"{student_name}_{student_id}")
         os.makedirs(student_dir, exist_ok=True)
         return student_dir
 
+    # 改进5: 保留所有人历史注册信息 — 学号重复时更新而非拒绝
     def register_student(self, student_name: str, student_id: str, phone: str = "", class_name: str = "", email: str = "") -> dict:
         students = self._read_students()
         for s in students:
             if s["student_id"] == student_id:
-                return {"error": "duplicate", "message": "该学号已注册"}
+                # 学号已存在，更新信息但保留原记录
+                old_name = s.get("student_name")
+                s["student_name"] = student_name
+                if phone:
+                    s["phone"] = phone
+                if email:
+                    s["email"] = email
+                if class_name:
+                    s["class_name"] = class_name
+                s["status"] = "active"
+                s["updated_at"] = datetime.now().isoformat()
+                # 记录历史名称变化
+                history = s.setdefault("history", [])
+                if old_name and old_name != student_name:
+                    history.append({"field": "student_name", "from": old_name, "to": student_name, "changed_at": datetime.now().isoformat()})
+                self._write_students(students)
+                return {"message": "信息已更新", "student": s, "updated": True}
         student = {
             "student_name": student_name,
             "student_id": student_id,
             "phone": phone,
             "email": email,
             "class_name": class_name,
+            "status": "active",
             "registered_at": datetime.now().isoformat()
         }
         students.append(student)
@@ -375,11 +435,73 @@ class JsonStore:
             ])
         return output.getvalue()
 
+    # ─── 改进11: 意见与Bug反馈系统 ───
+
+    def _read_feedbacks(self) -> list:
+        if self._use_db:
+            from .db_store import read_feedbacks
+            return read_feedbacks()
+        try:
+            with open(self.feedbacks_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+
+    def _write_feedbacks(self, data: list):
+        if self._use_db:
+            from .db_store import write_feedbacks
+            write_feedbacks(data)
+            return
+        with open(self.feedbacks_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def save_feedback(self, name: str, contact: str, content: str, feedback_type: str) -> dict:
+        feedbacks = self._read_feedbacks()
+        fb = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "contact": contact,
+            "content": content,
+            "type": feedback_type,
+            "created_at": datetime.now().isoformat()
+        }
+        feedbacks.insert(0, fb)
+        self._write_feedbacks(feedbacks)
+        return fb
+
+    def list_feedbacks(self, page: int = 1, page_size: int = 20) -> dict:
+        feedbacks = self._read_feedbacks()
+        total = len(feedbacks)
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = feedbacks[start:end]
+        return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+    def get_feedback_stats(self) -> dict:
+        feedbacks = self._read_feedbacks()
+        total = len(feedbacks)
+        by_type = {}
+        for fb in feedbacks:
+            t = fb.get("type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+        return {"total": total, "by_type": by_type}
+
+    def delete_feedback(self, fb_id: str) -> bool:
+        feedbacks = self._read_feedbacks()
+        for i, fb in enumerate(feedbacks):
+            if fb["id"] == fb_id:
+                feedbacks.pop(i)
+                self._write_feedbacks(feedbacks)
+                return True
+        return False
+
+    # 改进13: 导出文件命名修复 — 完全保留原始文件名
+    # 大文件优化: 使用临时文件避免内存溢出，返回生成器
     def create_submission_zip(self, hw_id: str, flat: bool = False) -> Optional[bytes]:
         hw = self.get_homework(hw_id)
         if not hw:
             return None
-        dir_name = f"{hw['due_date']}_{hw['title']}"
+        dir_name = self._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
         hw_dir = self.uploads_dir / dir_name
         if not hw_dir.exists():
             return None
@@ -393,7 +515,44 @@ class JsonStore:
                             if flat:
                                 arcname = f"{student_dir.name}_{file_path.name}"
                             else:
-                                arcname = f"{student_dir.name}/{file_path.relative_to(student_dir)}"
+                                # 改进13: 确保路径为 {student_name}_{student_id}/{original_filename}
+                                arcname = f"{student_dir.name}/{file_path.name}"
                             zf.write(file_path, arcname)
         buf.seek(0)
         return buf.getvalue()
+
+    # 大文件优化: 生成器方式分块读取 ZIP 文件, 用于 StreamingResponse
+    def iter_submission_zip_chunks(self, hw_id: str, flat: bool = False, chunk_size: int = 8 * 1024 * 1024):
+        """生成 ZIP 文件的分块数据，用于 StreamingResponse"""
+        hw = self.get_homework(hw_id)
+        if not hw:
+            return
+        dir_name = self._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
+        hw_dir = self.uploads_dir / dir_name
+        if not hw_dir.exists():
+            return
+        import tempfile
+        import io
+        # 使用临时文件避免内存占用
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+            tmp_path = tmp.name
+            with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for student_dir in hw_dir.iterdir():
+                    if student_dir.is_dir():
+                        for file_path in student_dir.rglob("*"):
+                            if file_path.is_file():
+                                if flat:
+                                    arcname = f"{student_dir.name}_{file_path.name}"
+                                else:
+                                    arcname = f"{student_dir.name}/{file_path.name}"
+                                zf.write(file_path, arcname)
+        # 分块读取临时文件并生成
+        try:
+            with open(tmp_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        finally:
+            os.unlink(tmp_path)

@@ -11,6 +11,11 @@
           <el-input v-model="form.studentId" placeholder="请输入学号" size="large" prefix-icon="Edit" />
         </el-form-item>
 
+        <!-- 改进8: 记住账号 -->
+        <el-form-item>
+          <el-checkbox v-model="rememberAccount">记住账号</el-checkbox>
+        </el-form-item>
+
         <!-- Class selection (only shown during registration) -->
         <el-form-item v-if="showRegister" prop="className">
           <el-select v-model="form.className" placeholder="选择班级" size="large" style="width:100%" filterable :loading="loadingClasses">
@@ -67,6 +72,8 @@ const rules = {
   studentId: [{ required: true, message: '请输入学号', trigger: 'blur' }],
   className: [{ required: true, message: '请选择班级', trigger: 'change' }]
 }
+// 改进8: 记住账号
+const rememberAccount = ref(false)
 
 function toggleRegister() {
   showRegister.value = !showRegister.value
@@ -81,6 +88,14 @@ async function handleLogin() {
     const res = await studentLogin(form.name, form.studentId)
     const student = res.data.student
     sessionStorage.setItem('student_info', JSON.stringify(student))
+    // 改进8: 记住账号
+    if (rememberAccount.value) {
+      localStorage.setItem('remembered_student_name', form.name)
+      localStorage.setItem('remembered_student_id', form.studentId)
+    } else {
+      localStorage.removeItem('remembered_student_name')
+      localStorage.removeItem('remembered_student_id')
+    }
     ElMessage.success('登录成功')
     router.push('/student/dashboard')
   } catch (e) {
@@ -113,18 +128,39 @@ onMounted(async () => {
     classes.value = res.data.classes || []
   } catch { /* ignore */ }
   finally { loadingClasses.value = false }
+  // 改进8: 自动填充记住的账号
+  const savedName = localStorage.getItem('remembered_student_name')
+  const savedId = localStorage.getItem('remembered_student_id')
+  if (savedName && savedId) {
+    form.name = savedName
+    form.studentId = savedId
+    rememberAccount.value = true
+  }
 })
 </script>
 
 <style scoped>
 .login-page {
   display: flex; justify-content: center; align-items: center;
-  min-height: 100vh; background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+  min-height: 100vh; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  padding: 20px;
 }
 .login-card {
   background: white; padding: 40px 32px; border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.12); width: 100%; max-width: 400px;
+  animation: cardIn 0.4s ease;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .login-card h1 { margin: 0 0 8px; text-align: center; font-size: 22px; }
 .tip { text-align: center; color: #909399; margin: 0 0 24px; font-size: 14px; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .login-page { padding: 16px; }
+  .login-card { padding: 28px 20px; }
+  .login-card h1 { font-size: 20px; }
+}
 </style>

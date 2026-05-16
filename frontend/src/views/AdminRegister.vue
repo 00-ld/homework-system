@@ -15,6 +15,11 @@
           <el-input v-model="form.password" type="password" placeholder="密码" size="large" prefix-icon="Lock" show-password />
         </el-form-item>
 
+        <!-- 改进4: 授权码 -->
+        <el-form-item prop="auth_code">
+          <el-input v-model="form.auth_code" placeholder="授权码" size="large" prefix-icon="Key" show-password />
+        </el-form-item>
+
         <el-form-item label="班级" prop="class_name">
           <div style="display:flex;gap:8px;width:100%">
             <el-select v-model="form.class_name" placeholder="选择已有班级" size="large" style="flex:1" filterable allow-create>
@@ -57,10 +62,12 @@ const newClass = ref('')
 const creatingClass = ref(false)
 const registering = ref(false)
 
-const form = reactive({ username: '', password: '', class_name: '' })
+const form = reactive({ username: '', password: '', auth_code: '', class_name: '' })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  // 改进4: 授权码验证
+  auth_code: [{ required: true, message: '请输入授权码', trigger: 'blur' }],
   class_name: [{ required: true, message: '请选择或创建班级', trigger: 'change' }]
 }
 
@@ -71,10 +78,16 @@ async function handleRegister() {
   }
   registering.value = true
   try {
+    // 改进4: 传递授权码
     const res = await fetch('/api/admin/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: form.username, password: form.password, class_name: form.class_name })
+      body: JSON.stringify({
+        username: form.username,
+        password: form.password,
+        class_name: form.class_name,
+        auth_code: form.auth_code
+      })
     })
     const data = await res.json()
     if (res.ok) {
@@ -128,14 +141,28 @@ onMounted(async () => {
 .register-page {
   display: flex; justify-content: center; align-items: center;
   min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
 }
 .register-card {
   background: white; padding: 40px; border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15); width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15); width: 440px; max-width: 100%;
+  animation: cardIn 0.4s ease;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .register-card h1 { margin: 0 0 4px; font-size: 22px; }
 .tip { color: #909399; margin: 0 0 24px; font-size: 14px; }
 .create-class-area {
   background: #f5f7fa; padding: 16px; border-radius: 8px;
+}
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .register-page { padding: 16px; }
+  .register-card { padding: 28px 20px; }
+  .register-card h1 { font-size: 20px; }
+  .create-class-area > div { flex-direction: column; }
 }
 </style>

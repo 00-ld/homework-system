@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from .api.homework import router as homework_router
 from .api.submission import router as submission_router
 from .api.student import router as student_router
+from .api.feedback import router as feedback_router  # 改进11
 from .config import HOST, PORT, FRONTEND_DIST
 
 
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(homework_router)
 app.include_router(submission_router)
 app.include_router(student_router)
+app.include_router(feedback_router)  # 改进11
 
 
 def get_lan_ip() -> str:

@@ -88,3 +88,10 @@ def read_email_config() -> dict:
 
 def write_email_config(data: dict):
     _save("email_config", data)
+
+# 改进11: 反馈存储
+def read_feedbacks() -> list:
+    return _load("feedbacks", [])
+
+def write_feedbacks(data: list):
+    _save("feedbacks", data)

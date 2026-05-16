@@ -2,16 +2,9 @@
   <div class="uploader">
     <div class="drop-zone" @dragover.prevent @drop.prevent="handleDrop"
       :class="{ 'is-dragover': dragging }" @dragenter="dragging=true" @dragleave="dragging=false">
-      <el-icon :size="48" color="#409eff"><FolderAdd /></el-icon>
-      <p v-if="!files.length">拖拽文件夹到此处，或点击下方按钮选择</p>
+      <el-icon :size="48" :color="dragging ? '#67c23a' : '#409eff'"><FolderAdd /></el-icon>
+      <p v-if="!files.length" class="drop-hint">请拖拽文件夹到此处</p>
       <p v-else class="file-count">已选择 {{ files.length }} 个文件</p>
-    </div>
-
-    <div style="margin-top:12px;text-align:center">
-      <el-button type="primary" @click="selectFolder">
-        <el-icon><FolderOpened /></el-icon> 选择文件夹
-      </el-button>
-      <input ref="fileInput" type="file" webkitdirectory multiple @change="handleFileSelect" hidden />
     </div>
 
     <div v-if="files.length" class="file-list">
@@ -39,7 +32,6 @@ const maxSize = MAX_SIZE
 
 const dragging = ref(false)
 const files = ref([])
-const fileInput = ref(null)
 
 const totalSize = computed(() => files.value.reduce((s, f) => s + f.size, 0))
 
@@ -56,15 +48,6 @@ function processFiles(fileList) {
   })
   files.value = arr
   emit('files-change', arr, totalSize.value)
-}
-
-function selectFolder() {
-  fileInput.value.value = ''
-  fileInput.value.click()
-}
-
-function handleFileSelect(e) {
-  if (e.target.files.length) processFiles(e.target.files)
 }
 
 function handleDrop(e) {
@@ -117,29 +100,61 @@ defineExpose({ files, totalSize, getFiles: () => files.value })
 </script>
 
 <style scoped>
+/* 改进2: 美化拖拽区域 */
 .drop-zone {
-  border: 2px dashed #dcdfe6;
-  border-radius: 12px;
-  padding: 40px;
+  border: 2.5px dashed #c0c4cc;
+  border-radius: 16px;
+  padding: 50px 40px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s;
-  background: #fafafa;
+  transition: all 0.35s ease;
+  background: linear-gradient(135deg, #fafafe 0%, #f0f4ff 100%);
+  position: relative;
+  overflow: hidden;
 }
-.drop-zone:hover, .drop-zone.is-dragover {
-  border-color: #409eff;
-  background: #ecf5ff;
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(102,126,234,0.03) 0%, rgba(118,75,162,0.03) 100%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
 }
-.drop-zone p { color: #909399; margin: 8px 0 0; }
-.file-count { font-size: 16px; color: #409eff !important; }
-.file-list { margin-top: 16px; max-height: 300px; overflow-y: auto; }
+.drop-zone:hover {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f0f4ff 0%, #ede8ff 100%);
+  box-shadow: 0 4px 20px rgba(102,126,234,0.12);
+  transform: translateY(-2px);
+}
+.drop-zone.is-dragover {
+  border-color: #67c23a;
+  border-style: solid;
+  background: linear-gradient(135deg, #f0f9eb 0%, #e8f5e9 100%);
+  box-shadow: 0 4px 25px rgba(103,194,58,0.2);
+  transform: translateY(-2px) scale(1.01);
+}
+.drop-zone p { color: #909399; margin: 12px 0 0; }
+.drop-hint {
+  font-size: 16px;
+  color: #909399;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.drop-zone:hover .drop-hint {
+  color: #667eea;
+}
+.file-count { font-size: 16px; color: #667eea !important; font-weight: 600; }
+.file-list { margin-top: 16px; max-height: 300px; overflow-y: auto; border-radius: 8px; }
 .file-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; font-size: 13px; color: #606266;
+  padding: 8px 12px; font-size: 13px; color: #606266;
+  transition: background 0.2s;
 }
+.file-item:hover { background: #f5f7ff; }
 .file-item:nth-child(odd) { background: #fafafa; }
+.file-item:nth-child(odd):hover { background: #f0f4ff; }
 .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-size { color: #909399; white-space: nowrap; }
-.file-total { font-size: 14px; font-weight: bold; margin: 8px 0 0; text-align: right; }
+.file-total { font-size: 14px; font-weight: bold; margin: 8px 0 0; text-align: right; color: #606266; }
 .over-limit { color: #f56c6c; }
 </style>

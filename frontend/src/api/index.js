@@ -106,4 +106,27 @@ export function deleteAdmin(username) {
   return api.delete(`/admin/admins/${username}`)
 }
 
+// 改进7: 系统概览
+export function getSystemOverview() {
+  return api.get('/admin/system-overview')
+}
+
+// 改进11: 反馈相关
+export function submitFeedback(data) {
+  return api.post('/feedback', data)
+}
+
+export function getFeedbacks(params = {}) {
+  return api.get('/admin/feedbacks', { params })
+}
+
+export function deleteFeedback(id) {
+  return api.delete(`/admin/feedbacks/${id}`)
+}
+
+// 改进10: 作业提交状态
+export function getHomeworkStatus(id) {
+  return api.get(`/admin/homeworks/${id}/status`)
+}
+
 export default api

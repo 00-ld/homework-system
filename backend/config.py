@@ -14,7 +14,7 @@ DATA_DIR = Path(os.environ.get("HOMEWORK_DATA_DIR", BASE_DIR / "data"))
 FRONTEND_DIST = _INTERNAL_DIR / "frontend" / "dist"
 
 ADMIN_PASSWORD = "admin123"
-MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500MB
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", "8000"))
 

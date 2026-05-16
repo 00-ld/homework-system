@@ -11,6 +11,9 @@ const routes = [
   { path: '/student/login', name: 'StudentLogin', component: () => import('@/views/StudentLogin.vue') },
   { path: '/student/dashboard', name: 'StudentDashboard', component: () => import('@/views/StudentDashboard.vue') },
   { path: '/student/submit/:linkId', name: 'StudentSubmit', component: () => import('@/views/StudentSubmit.vue') },
+  // 改进7: 超管面板路由
+  { path: '/admin/system', name: 'SystemAdmin', component: () => import('@/views/SystemAdmin.vue') },
+  { path: '/admin/feedback', name: 'FeedbackList', component: () => import('@/views/FeedbackList.vue') },
 ]
 
 const router = createRouter({

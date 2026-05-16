@@ -1,8 +1,11 @@
 import os
 import shutil
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from ..storage import JsonStore
 from ..config import MAX_UPLOAD_SIZE
+
+CHUNK_SIZE = 8 * 1024 * 1024  # 8MB per chunk for streaming
 
 router = APIRouter(prefix="/api/submit", tags=["submit"])
 store = JsonStore()
@@ -35,6 +38,14 @@ async def submit_homework(
     if not hw:
         raise HTTPException(status_code=404, detail="链接无效或作业不存在")
 
+    # 改进1: 截止后不能再提交作业
+    try:
+        due = datetime.fromisoformat(hw["due_date"])
+        if datetime.now() > due:
+            raise HTTPException(status_code=403, detail="作业已截止，无法提交")
+    except ValueError:
+        pass  # 日期格式异常时放行
+
     check = store.check_submission(link_id, student_name, student_id)
     if check:
         old_dir = store.get_submission_dir(hw, student_name, student_id)
@@ -45,15 +56,20 @@ async def submit_homework(
     saved_files = []
     student_dir = store.get_submission_dir(hw, student_name, student_id)
 
+    # 大文件优化: 流式读取，每块检查大小，避免 OOM
     for file in files:
-        content = await file.read()
-        total_size += len(content)
-        if total_size > MAX_UPLOAD_SIZE:
-            shutil.rmtree(student_dir, ignore_errors=True)
-            raise HTTPException(status_code=413, detail=f"文件总大小超过 {MAX_UPLOAD_SIZE // (1024*1024)}MB 限制")
         file_path = student_dir / file.filename
         with open(file_path, "wb") as f:
-            f.write(content)
+            while True:
+                chunk = await file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > MAX_UPLOAD_SIZE:
+                    f.close()
+                    shutil.rmtree(student_dir, ignore_errors=True)
+                    raise HTTPException(status_code=413, detail=f"文件总大小超过 {MAX_UPLOAD_SIZE // (1024*1024)}MB 限制")
+                f.write(chunk)
         saved_files.append(file.filename)
 
     sub = store.save_submission(link_id, student_name, student_id, saved_files, total_size)

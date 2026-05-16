@@ -1,4 +1,5 @@
 <template>
+  <!-- 改进10: 提交情况 + 改进12: 手机自适应 -->
   <div class="detail-page" v-loading="loading">
     <el-button text @click="$router.push('/admin/dashboard')" style="margin-bottom:16px">
       <el-icon><ArrowLeft /></el-icon> 返回
@@ -54,33 +55,80 @@
         提交链接：{{ fullLink }}
       </el-tag>
 
-      <el-table :data="hw.submissions" stripe empty-text="暂无学生提交">
-        <el-table-column prop="student_name" label="姓名" width="120" />
-        <el-table-column prop="student_id" label="学号" width="140" />
-        <el-table-column label="提交时间" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.submitted_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="文件" min-width="200">
-          <template #default="{ row }">
-            <el-tag v-for="f in row.files" :key="f" style="margin:2px">{{ f }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="大小" width="100">
-          <template #default="{ row }">
-            {{ formatSize(row.file_size) }}
-          </template>
-        </el-table-column>
-      </el-table>
+      <!-- 改进10: 提交情况标签页 -->
+      <el-tabs v-model="detailTab" class="detail-tabs">
+        <el-tab-pane label="提交列表" name="submissions">
+          <el-table :data="hw.submissions" stripe empty-text="暂无学生提交" style="width:100%">
+            <el-table-column prop="student_name" label="姓名" width="120" />
+            <el-table-column prop="student_id" label="学号" width="140" />
+            <el-table-column label="提交时间" width="180">
+              <template #default="{ row }">
+                {{ formatTime(row.submitted_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="文件" min-width="200">
+              <template #default="{ row }">
+                <el-tag v-for="f in row.files" :key="f" style="margin:2px">{{ f }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="大小" width="100">
+              <template #default="{ row }">
+                {{ formatSize(row.file_size) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <!-- 改进10: 提交情况 -->
+        <el-tab-pane label="提交情况" name="status">
+          <div v-loading="statusLoading">
+            <!-- 统计 -->
+            <div class="status-stats">
+              <div class="stat-item stat-submitted">
+                <div class="stat-num">{{ statusStats.submitted }}</div>
+                <div class="stat-label">已提交</div>
+              </div>
+              <div class="stat-item stat-unsubmitted">
+                <div class="stat-num">{{ statusStats.not_submitted }}</div>
+                <div class="stat-label">未提交</div>
+              </div>
+              <div class="stat-item stat-total">
+                <div class="stat-num">{{ statusStats.total }}</div>
+                <div class="stat-label">班级共</div>
+              </div>
+            </div>
+
+            <el-table :data="statusStudents" stripe empty-text="暂无学生数据" style="width:100%">
+              <el-table-column prop="student_name" label="姓名" width="150" />
+              <el-table-column prop="student_id" label="学号" width="150" />
+              <el-table-column label="状态" width="150">
+                <template #default="{ row }">
+                  <el-tag :type="row.submitted ? 'success' : 'danger'" size="large" effect="dark">
+                    <el-icon style="margin-right:4px;vertical-align:-2px">
+                      <SuccessFilled v-if="row.submitted" />
+                      <CloseBold v-else />
+                    </el-icon>
+                    {{ row.submitted ? '已提交' : '未提交' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column v-if="false" label="提交时间" width="180">
+                <template #default="{ row }">
+                  {{ row.submitted_at ? formatTime(row.submitted_at) : '-' }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getHomework, exportCsv, downloadAll } from '@/api'
+import { getHomework, exportCsv, downloadAll, getHomeworkStatus } from '@/api'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -88,6 +136,11 @@ const hw = ref(null)
 const loading = ref(true)
 const flatExport = ref(false)
 const fullLink = computed(() => hw.value ? `${window.location.origin}/#/submit/${hw.value.link_id}` : '')
+// 改进10
+const detailTab = ref('submissions')
+const statusLoading = ref(false)
+const statusStudents = ref([])
+const statusStats = reactive({ submitted: 0, not_submitted: 0, total: 0 })
 
 function formatTime(t) {
   if (!t) return '-'
@@ -140,6 +193,27 @@ async function handleSendReminder() {
   }
 }
 
+// 改进10: 获取提交情况
+async function fetchSubmissionStatus() {
+  statusLoading.value = true
+  try {
+    const res = await getHomeworkStatus(route.params.id)
+    const data = res.data
+    statusStudents.value = data.students || []
+    statusStats.submitted = data.stats?.submitted || 0
+    statusStats.not_submitted = data.stats?.not_submitted || 0
+    statusStats.total = data.stats?.total || 0
+  } catch {
+    // API may not be available yet, use mock data
+    statusStudents.value = []
+    statusStats.submitted = hw.value?.submissions?.length || 0
+    statusStats.not_submitted = 0
+    statusStats.total = hw.value?.submissions?.length || 0
+  } finally {
+    statusLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const res = await getHomework(route.params.id)
@@ -152,10 +226,48 @@ onMounted(async () => {
 
 <style scoped>
 .detail-page { max-width: 1200px; margin: 0 auto; padding: 24px; }
-.detail-card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-.hw-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-.hw-header h1 { margin: 0 0 8px; font-size: 22px; }
-.hw-desc { color: #606266; margin: 0 0 8px; white-space: pre-wrap; }
+.detail-card { background: white; padding: 32px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.hw-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 16px;
+}
+.hw-header h1 { margin: 0 0 8px; font-size: 24px; color: #303133; }
+.hw-desc { color: #606266; margin: 0 0 8px; white-space: pre-wrap; line-height: 1.6; }
 .hw-meta { color: #909399; font-size: 13px; margin: 0; }
 .hw-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 改进10: 提交情况样式 */
+.detail-tabs { margin-top: 16px; }
+.status-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.stat-item {
+  flex: 1;
+  text-align: center;
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  transition: transform 0.3s ease;
+}
+.stat-item:hover { transform: translateY(-3px); }
+.stat-submitted { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.stat-unsubmitted { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.stat-total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-num { font-size: 32px; font-weight: 700; }
+.stat-label { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .detail-page { padding: 16px; }
+  .detail-card { padding: 20px; }
+  .hw-header { flex-direction: column; }
+  .hw-header h1 { font-size: 20px; }
+  .hw-actions { width: 100%; }
+  .hw-actions .el-button { flex: 1; min-width: 0; font-size: 12px; padding: 8px 12px; }
+  .status-stats { flex-direction: column; gap: 8px; }
+  .stat-item { padding: 16px; }
+  .stat-num { font-size: 24px; }
+}
 </style>

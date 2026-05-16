@@ -90,12 +90,24 @@ function copyLink() {
   max-width: 800px;
   margin: 0 auto;
   padding: 24px;
+  min-height: 100vh;
 }
 .create-card {
   background: white;
   padding: 32px;
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: box-shadow 0.3s;
 }
-.create-card h1 { margin: 0 0 24px; font-size: 22px; }
+.create-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.create-card h1 { margin: 0 0 24px; font-size: 22px; color: #303133; }
+
+/* 改进12: 手机自适应 */
+@media (max-width: 768px) {
+  .create-page { padding: 16px; }
+  .create-card { padding: 20px; }
+  .create-card h1 { font-size: 20px; }
+}
 </style>
