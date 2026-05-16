@@ -334,8 +334,9 @@ def get_homework_status(hw_id: str, authorization: str = Header(None)):
         raise HTTPException(status_code=404, detail="作业不存在")
     if hw.get("class_name") != admin["class_name"]:
         raise HTTPException(status_code=403, detail="无权访问该作业")
-    # 获取班级所有活跃学生
-    students = store.list_students_by_class(admin["class_name"], active_only=True)
+    # 获取作业对应班级的所有活跃学生
+    class_name = hw.get("class_name", admin["class_name"])
+    students = store.list_students_by_class(class_name, active_only=True)
     # 获取已提交的学生 ID 集合
     submitted_ids = {s["student_id"] for s in hw.get("submissions", [])}
     result = []
