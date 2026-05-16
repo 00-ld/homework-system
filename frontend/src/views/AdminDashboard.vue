@@ -10,6 +10,9 @@
         <el-button type="primary" @click="$router.push('/admin/homework/create')" size="large">
           <el-icon><Plus /></el-icon> 创建新作业
         </el-button>
+        <el-button @click="$router.push('/admin/students')">
+          <el-icon><User /></el-icon> 学生管理
+        </el-button>
         <el-button @click="$router.push('/admin/sms-config')">
           <el-icon><Message /></el-icon> 邮件设置
         </el-button>

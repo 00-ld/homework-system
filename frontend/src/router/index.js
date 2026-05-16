@@ -14,6 +14,7 @@ const routes = [
   // 改进7: 超管面板路由
   { path: '/admin/system', name: 'SystemAdmin', component: () => import('@/views/SystemAdmin.vue') },
   { path: '/admin/feedback', name: 'FeedbackList', component: () => import('@/views/FeedbackList.vue') },
+  { path: '/admin/students', name: 'StudentManagement', component: () => import('@/views/StudentManagement.vue') },
 ]
 
 const router = createRouter({

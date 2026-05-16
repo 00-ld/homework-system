@@ -169,11 +169,14 @@ class JsonStore:
         result = [s for s in students if s.get("class_name") == class_name]
         if active_only:
             result = [s for s in result if s.get("status", "active") == "active"]
+        result.sort(key=lambda s: s.get("student_id", ""))
         return result
 
     # 改进5: 返回所有学生（包括非活跃的）
     def list_all_students(self) -> list:
-        return self._read_students()
+        students = self._read_students()
+        students.sort(key=lambda s: s.get("student_id", ""))
+        return students
 
     # 改进5: 标记学生为非活跃
     def deactivate_student(self, student_id: str) -> bool:
@@ -413,6 +416,61 @@ class JsonStore:
                 return s
         return None
 
+    def update_student_info(self, student_id: str, data: dict) -> Optional[dict]:
+        """更新学生信息（姓名、学号、手机号、班级）"""
+        students = self._read_students()
+        for s in students:
+            if s["student_id"] == student_id:
+                if "student_name" in data and data["student_name"]:
+                    s["student_name"] = data["student_name"]
+                if "student_id_new" in data and data["student_id_new"]:
+                    s["student_id"] = data["student_id_new"]
+                if "phone" in data:
+                    s["phone"] = data["phone"]
+                if "class_name" in data:
+                    s["class_name"] = data["class_name"]
+                s["updated_at"] = datetime.now().isoformat()
+                self._write_students(students)
+                return s
+        return None
+
+    def search_students(self, keyword: str, class_name: str = "") -> list:
+        """搜索学生，按姓名或学号模糊匹配"""
+        students = self._read_students()
+        keyword = keyword.strip().lower()
+        result = []
+        for s in students:
+            if class_name and s.get("class_name") != class_name:
+                continue
+            if keyword in s.get("student_name", "").lower() or keyword in s.get("student_id", "").lower():
+                result.append(s)
+        result.sort(key=lambda s: s.get("student_id", ""))
+        return result
+
+    def add_manual_submission(self, hw_id: str, student_name: str, student_id: str) -> Optional[dict]:
+        """手动添加提交记录（补交），不涉及实际文件"""
+        homeworks = self._read_json()
+        hw = self._find_homework(homeworks, hw_id)
+        if not hw:
+            return None
+        subs = hw.setdefault("submissions", [])
+        # 如果该学生已提交，移除旧记录
+        for i, sub in enumerate(subs):
+            if sub["student_id"] == student_id:
+                subs.pop(i)
+                break
+        sub = {
+            "student_name": student_name,
+            "student_id": student_id,
+            "files": [],
+            "submitted_at": datetime.now().isoformat(),
+            "file_size": 0,
+            "manual": True
+        }
+        subs.append(sub)
+        self._write_json(homeworks)
+        return sub
+
     def list_students(self) -> list:
         return self._read_students()
 
@@ -529,23 +587,22 @@ class JsonStore:
             return
         dir_name = self._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
         hw_dir = self.uploads_dir / dir_name
-        if not hw_dir.exists():
-            return
         import tempfile
         import io
         # 使用临时文件避免内存占用
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
             tmp_path = tmp.name
             with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for student_dir in hw_dir.iterdir():
-                    if student_dir.is_dir():
-                        for file_path in student_dir.rglob("*"):
-                            if file_path.is_file():
-                                if flat:
-                                    arcname = file_path.name
-                                else:
-                                    arcname = f"{student_dir.name}/{file_path.name}"
-                                zf.write(file_path, arcname)
+                if hw_dir.exists():
+                    for student_dir in hw_dir.iterdir():
+                        if student_dir.is_dir():
+                            for file_path in student_dir.rglob("*"):
+                                if file_path.is_file():
+                                    if flat:
+                                        arcname = file_path.name
+                                    else:
+                                        arcname = f"{student_dir.name}/{file_path.name}"
+                                    zf.write(file_path, arcname)
         # 分块读取临时文件并生成
         try:
             with open(tmp_path, 'rb') as f:

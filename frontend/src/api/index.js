@@ -94,8 +94,10 @@ export function getPublicClasses() {
   return api.get('/student/classes')
 }
 
-export function getStudents() {
-  return api.get('/admin/students')
+export function getStudents(keyword = '') {
+  const params = {}
+  if (keyword) params.keyword = keyword
+  return api.get('/admin/students', { params })
 }
 
 export function getAllAdmins() {
@@ -104,6 +106,22 @@ export function getAllAdmins() {
 
 export function deleteAdmin(username) {
   return api.delete(`/admin/admins/${username}`)
+}
+
+export function updateStudent(studentId, data) {
+  return api.put(`/admin/students/${studentId}`, data)
+}
+
+export function searchStudents(keyword) {
+  return api.get('/admin/students', { params: { keyword } })
+}
+
+export function addManualSubmission(hwId, data) {
+  return api.post(`/admin/homeworks/${hwId}/students`, data)
+}
+
+export function deleteStudent(studentId) {
+  return api.delete(`/admin/students/${studentId}`)
 }
 
 // 改进7: 系统概览

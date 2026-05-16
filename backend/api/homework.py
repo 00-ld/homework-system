@@ -26,6 +26,18 @@ class ClassCreateRequest(BaseModel):
     name: str
 
 
+class UpdateStudentRequest(BaseModel):
+    student_name: str = ""
+    student_id_new: str = ""
+    phone: str = ""
+    class_name: str = ""
+
+
+class ManualSubmissionRequest(BaseModel):
+    student_name: str
+    student_id: str
+
+
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 store = JsonStore()
 
@@ -120,13 +132,10 @@ def export_csv(hw_id: str, authorization: str = Header(None)):
 @router.get("/homeworks/{hw_id}/download-all")
 def download_all(hw_id: str, flat: bool = False, authorization: str = Header(None)):
     get_current_admin(authorization)
-    # 先用非流式方法检查是否有数据
     hw = store.get_homework(hw_id)
     if not hw:
         raise HTTPException(status_code=404, detail="作业不存在")
-    dir_name = store._sanitize_path_component(f"{hw['due_date']}_{hw['title']}")
-    hw_dir = store.uploads_dir / dir_name
-    if not hw_dir.exists():
+    if not hw.get("submissions"):
         raise HTTPException(status_code=404, detail="暂无提交")
     suffix = "_flat" if flat else ""
     generator = store.iter_submission_zip_chunks(hw_id, flat=flat)
@@ -206,10 +215,48 @@ def create_class(req: ClassCreateRequest):
 # --- Student management ---
 
 @router.get("/students")
-def list_students(authorization: str = Header(None)):
+def list_students(keyword: str = "", authorization: str = Header(None)):
     admin = get_current_admin(authorization)
-    students = store.list_students_by_class(admin["class_name"])
+    if keyword:
+        students = store.search_students(keyword, admin["class_name"])
+    else:
+        students = store.list_students_by_class(admin["class_name"])
     return {"students": students}
+
+
+@router.put("/students/{student_id}")
+def update_student(student_id: str, req: UpdateStudentRequest, authorization: str = Header(None)):
+    """修改学生信息（姓名、学号、手机号、班级）"""
+    admin = get_current_admin(authorization)
+    student = store.get_student_by_id(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    if admin["class_name"] != student.get("class_name", "") and admin["username"] != "admin":
+        raise HTTPException(status_code=403, detail="无权操作该学生")
+    data = {k: v for k, v in req.model_dump().items() if v}
+    updated = store.update_student_info(student_id, data)
+    if not updated:
+        raise HTTPException(status_code=500, detail="更新失败")
+    return {"message": "学生信息已更新", "student": updated}
+
+
+@router.post("/homeworks/{hw_id}/students")
+def add_manual_submission(hw_id: str, req: ManualSubmissionRequest, authorization: str = Header(None)):
+    """手动添加提交记录（补交）"""
+    admin = get_current_admin(authorization)
+    hw = store.get_homework(hw_id)
+    if not hw:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    if hw.get("class_name") != admin["class_name"]:
+        raise HTTPException(status_code=403, detail="无权操作该作业")
+    # 确保学生存在，不存在则注册
+    student = store.get_student_by_id(req.student_id)
+    if not student:
+        student = store.register_student(req.student_name, req.student_id, class_name=admin["class_name"])
+    sub = store.add_manual_submission(hw_id, req.student_name, req.student_id)
+    if not sub:
+        raise HTTPException(status_code=500, detail="添加失败")
+    return {"message": f"已为 {req.student_name}（{req.student_id}）添加补交记录", "submission": sub}
 
 
 # --- Super admin: admin management ---
