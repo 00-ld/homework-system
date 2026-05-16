@@ -86,6 +86,10 @@ export function studentRegister(studentName, studentId, className = '', phone = 
   return api.post('/student/register', { student_name: studentName, student_id: studentId, class_name: className, phone })
 }
 
+export function registerStudent(data) {
+  return api.post('/student/register', data)
+}
+
 export function studentLogin(studentName, studentId) {
   return api.post('/student/login', { student_name: studentName, student_id: studentId })
 }
@@ -94,9 +98,10 @@ export function getPublicClasses() {
   return api.get('/student/classes')
 }
 
-export function getStudents(keyword = '') {
+export function getStudents(keyword = '', class_name = '') {
   const params = {}
   if (keyword) params.keyword = keyword
+  if (class_name) params.class_name = class_name
   return api.get('/admin/students', { params })
 }
 
