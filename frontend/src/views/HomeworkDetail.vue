@@ -213,16 +213,17 @@ async function fetchSubmissionStatus() {
   try {
     const res = await getHomeworkStatus(route.params.id)
     const data = res.data
-    statusStudents.value = data.students || []
-    statusStats.submitted = data.stats?.submitted || 0
-    statusStats.not_submitted = data.stats?.not_submitted || 0
-    statusStats.total = data.stats?.total || 0
+    const students = data.students || []
+    statusStudents.value = students
+    const submitted = students.filter(s => s.submitted).length
+    statusStats.submitted = submitted
+    statusStats.not_submitted = students.length - submitted
+    statusStats.total = students.length
   } catch {
-    // API may not be available yet, use mock data
     statusStudents.value = []
-    statusStats.submitted = hw.value?.submissions?.length || 0
+    statusStats.submitted = 0
     statusStats.not_submitted = 0
-    statusStats.total = hw.value?.submissions?.length || 0
+    statusStats.total = 0
   } finally {
     statusLoading.value = false
   }

@@ -352,7 +352,16 @@ def get_homework_status(hw_id: str, authorization: str = Header(None)):
             "files": sub["files"] if sub else [],
             "file_size": sub["file_size"] if sub else 0
         })
-    return {"homework_title": hw["title"], "students": result}
+    submitted_count = sum(1 for s in result if s["submitted"])
+    return {
+        "homework_title": hw["title"],
+        "students": result,
+        "stats": {
+            "submitted": submitted_count,
+            "not_submitted": len(result) - submitted_count,
+            "total": len(result)
+        }
+    }
 
 
 # ─── 改进7: 超管权限 ───
