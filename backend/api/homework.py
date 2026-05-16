@@ -337,14 +337,20 @@ def get_homework_status(hw_id: str, authorization: str = Header(None)):
     # 获取作业对应班级的所有活跃学生
     class_name = hw.get("class_name", admin["class_name"])
     students = store.list_students_by_class(class_name, active_only=True)
-    # 获取已提交的学生 ID 集合
-    submitted_ids = {s["student_id"] for s in hw.get("submissions", [])}
+    # 获取已提交的学生信息
+    submissions_by_id = {s["student_id"]: s for s in hw.get("submissions", [])}
     result = []
     for s in students:
+        sub = submissions_by_id.get(s["student_id"])
         result.append({
             "student_name": s["student_name"],
             "student_id": s["student_id"],
-            "submitted": s["student_id"] in submitted_ids
+            "phone": s.get("phone", ""),
+            "email": s.get("email", ""),
+            "submitted": sub is not None,
+            "submitted_at": sub["submitted_at"] if sub else None,
+            "files": sub["files"] if sub else [],
+            "file_size": sub["file_size"] if sub else 0
         })
     return {"homework_title": hw["title"], "students": result}
 

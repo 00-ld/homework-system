@@ -99,11 +99,14 @@
             </div>
 
             <el-table :data="statusStudents" stripe empty-text="暂无学生数据" style="width:100%">
-              <el-table-column prop="student_name" label="姓名" width="150" />
-              <el-table-column prop="student_id" label="学号" width="150" />
-              <el-table-column label="状态" width="150">
+              <el-table-column prop="student_name" label="姓名" width="120" />
+              <el-table-column prop="student_id" label="学号" width="130" />
+              <el-table-column prop="phone" label="手机" width="130">
+                <template #default="{ row }">{{ row.phone || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="状态" width="110">
                 <template #default="{ row }">
-                  <el-tag :type="row.submitted ? 'success' : 'danger'" size="large" effect="dark">
+                  <el-tag :type="row.submitted ? 'success' : 'danger'" size="small" effect="dark">
                     <el-icon style="margin-right:4px;vertical-align:-2px">
                       <SuccessFilled v-if="row.submitted" />
                       <CloseBold v-else />
@@ -112,9 +115,20 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column v-if="false" label="提交时间" width="180">
+              <el-table-column label="提交时间" width="180">
                 <template #default="{ row }">
                   {{ row.submitted_at ? formatTime(row.submitted_at) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="文件" min-width="200">
+                <template #default="{ row }">
+                  <el-tag v-for="f in row.files || []" :key="f" style="margin:2px" size="small">{{ f }}</el-tag>
+                  <span v-if="!row.files?.length">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="大小" width="100">
+                <template #default="{ row }">
+                  {{ row.file_size ? formatSize(row.file_size) : '-' }}
                 </template>
               </el-table-column>
             </el-table>
