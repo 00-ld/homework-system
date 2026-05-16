@@ -236,6 +236,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  fetchSubmissionStatus()
 })
 </script>
 
