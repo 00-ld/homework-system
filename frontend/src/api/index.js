@@ -129,6 +129,10 @@ export function getSystemOverview() {
   return api.get('/admin/system-overview')
 }
 
+export function getRecentActivities(limit = 10) {
+  return api.get('/admin/system/recent-activities', { params: { limit } })
+}
+
 // 改进11: 反馈相关
 export function submitFeedback(data) {
   return api.post('/feedback', data)
